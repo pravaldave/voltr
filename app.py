@@ -344,12 +344,20 @@ def search_stocks(query):
 
 @st.cache_data(ttl=300)
 def load_history(ticker, period):
-    return yf.Ticker(ticker).history(period=period)
+    try:
+        time.sleep(0.5)
+        return yf.Ticker(ticker).history(period=period)
+    except Exception:
+        return pd.DataFrame()
 
 @st.cache_data(ttl=300)
 def get_current_price(ticker):
-    hist = yf.Ticker(ticker).history(period="2d")
-    return hist['Close'].iloc[-1] if not hist.empty else None
+    try:
+        time.sleep(0.5)
+        hist = yf.Ticker(ticker).history(period="2d")
+        return hist['Close'].iloc[-1] if not hist.empty else None
+    except Exception:
+        return None
 
 @st.cache_data(ttl=600)
 def get_news(company_name):
