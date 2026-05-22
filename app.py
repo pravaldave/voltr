@@ -328,19 +328,9 @@ def search_stocks(query):
     if quick_matches:
         return quick_matches
     
-    # fallback to yfinance search
+   # fallback to yfinance search
     try:
         results = yf.Search(query, news_count=0, max_results=10)
-        quotes  = results.quotes
-        matches = {}
-        for q in quotes:
-            symbol = q.get("symbol", "")
-            name   = q.get("longname") or q.get("shortname") or symbol
-            if symbol.endswith(".NS") or symbol.endswith(".BO"):
-                matches[f"{name} ({symbol})"] = symbol
-        return matches if matches else POPULAR_STOCKS
-    except:
-        return POPULAR_STOCKS
         quotes  = results.quotes
         matches = {}
         for q in quotes:
