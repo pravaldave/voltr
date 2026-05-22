@@ -318,8 +318,29 @@ SECTOR_PEERS = {
 def search_stocks(query):
     if not query or len(query) < 2:
         return POPULAR_STOCKS
+    
+    # first check popular stocks for instant matches
+    query_lower = query.lower()
+    quick_matches = {
+        k: v for k, v in POPULAR_STOCKS.items()
+        if query_lower in k.lower()
+    }
+    if quick_matches:
+        return quick_matches
+    
+    # fallback to yfinance search
     try:
         results = yf.Search(query, news_count=0, max_results=10)
+        quotes  = results.quotes
+        matches = {}
+        for q in quotes:
+            symbol = q.get("symbol", "")
+            name   = q.get("longname") or q.get("shortname") or symbol
+            if symbol.endswith(".NS") or symbol.endswith(".BO"):
+                matches[f"{name} ({symbol})"] = symbol
+        return matches if matches else POPULAR_STOCKS
+    except:
+        return POPULAR_STOCKS
         quotes  = results.quotes
         matches = {}
         for q in quotes:
