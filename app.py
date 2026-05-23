@@ -1,5 +1,6 @@
 import streamlit as st
 import yfinance as yf
+from twelvedata import TDClient
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -270,46 +271,155 @@ POPULAR_STOCKS = {
 }
 
 SECTOR_PEERS = {
-    "RELIANCE.NS":   ["ONGC.NS", "IOC.NS", "BPCL.NS"],
-    "TCS.NS":        ["INFY.NS", "WIPRO.NS", "HCLTECH.NS"],
-    "HDFCBANK.NS":   ["ICICIBANK.NS", "KOTAKBANK.NS", "AXISBANK.NS"],
-    "INFY.NS":       ["TCS.NS", "WIPRO.NS", "HCLTECH.NS"],
-    "ICICIBANK.NS":  ["HDFCBANK.NS", "KOTAKBANK.NS", "AXISBANK.NS"],
-    "HINDUNILVR.NS": ["ITC.NS", "NESTLEIND.NS", "ASIANPAINT.NS"],
-    "ITC.NS":        ["HINDUNILVR.NS", "NESTLEIND.NS", "TITAN.NS"],
-    "KOTAKBANK.NS":  ["HDFCBANK.NS", "ICICIBANK.NS", "AXISBANK.NS"],
-    "LT.NS":         ["NTPC.NS", "TATAMOTORS.NS", "MARUTI.NS"],
-    "AXISBANK.NS":   ["HDFCBANK.NS", "ICICIBANK.NS", "KOTAKBANK.NS"],
-    "BAJFINANCE.NS": ["HDFCBANK.NS", "ICICIBANK.NS", "KOTAKBANK.NS"],
-    "ASIANPAINT.NS": ["HINDUNILVR.NS", "ITC.NS", "NESTLEIND.NS"],
-    "MARUTI.NS":     ["TATAMOTORS.NS", "LT.NS", "BAJFINANCE.NS"],
-    "SUNPHARMA.NS":  ["WIPRO.NS", "HCLTECH.NS", "INFY.NS"],
-    "WIPRO.NS":      ["TCS.NS", "INFY.NS", "HCLTECH.NS"],
-    "HCLTECH.NS":    ["TCS.NS", "INFY.NS", "WIPRO.NS"],
-    "TITAN.NS":      ["HINDUNILVR.NS", "ITC.NS", "ASIANPAINT.NS"],
-    "NESTLEIND.NS":  ["HINDUNILVR.NS", "ITC.NS", "ASIANPAINT.NS"],
-    "TATAMOTORS.NS": ["MARUTI.NS", "LT.NS", "BAJFINANCE.NS"],
-    "NTPC.NS":       ["LT.NS", "RELIANCE.NS", "ONGC.NS"],
-    "ZOMATO.NS":     ["ONE97.NS", "NYKAA.NS", "DMART.NS"],
-    "ONE97.NS":      ["ZOMATO.NS", "NYKAA.NS", "BAJFINANCE.NS"],
-    "NYKAA.NS":      ["ZOMATO.NS", "ONE97.NS", "DMART.NS"],
-    "TATASTEEL.NS":  ["JSWSTEEL.NS", "HINDALCO.NS", "VEDL.NS"],
-    "JSWSTEEL.NS":   ["TATASTEEL.NS", "HINDALCO.NS", "VEDL.NS"],
-    "HINDALCO.NS":   ["TATASTEEL.NS", "JSWSTEEL.NS", "VEDL.NS"],
-    "VEDL.NS":       ["TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS"],
-    "ONGC.NS":       ["RELIANCE.NS", "IOC.NS", "BPCL.NS"],
-    "IOC.NS":        ["RELIANCE.NS", "ONGC.NS", "BPCL.NS"],
-    "BPCL.NS":       ["RELIANCE.NS", "ONGC.NS", "IOC.NS"],
-    "COALINDIA.NS":  ["NTPC.NS", "ONGC.NS", "RELIANCE.NS"],
-    "DMART.NS":      ["ZOMATO.NS", "NYKAA.NS", "HINDUNILVR.NS"],
-    "PIDILITIND.NS": ["ASIANPAINT.NS", "BERGEPAINT.NS", "HINDUNILVR.NS"],
-    "HAVELLS.NS":    ["LT.NS", "BERGEPAINT.NS", "PIDILITIND.NS"],
-    "BERGEPAINT.NS": ["ASIANPAINT.NS", "PIDILITIND.NS", "HINDUNILVR.NS"],
-    "BAJAJ-AUTO.NS": ["HEROMOTOCO.NS", "MARUTI.NS", "TATAMOTORS.NS"],
-    "HEROMOTOCO.NS": ["BAJAJ-AUTO.NS", "MARUTI.NS", "TATAMOTORS.NS"],
-    "ADANIPORTS.NS": ["LT.NS", "NTPC.NS", "RELIANCE.NS"],
+    "RELIANCE:NSE":    ["ONGC:NSE", "IOC:NSE", "BPCL:NSE"],
+    "TCS:NSE":         ["INFY:NSE", "WIPRO:NSE", "HCLTECH:NSE"],
+    "HDFCBANK:NSE":    ["ICICIBANK:NSE", "KOTAKBANK:NSE", "AXISBANK:NSE"],
+    "INFY:NSE":        ["TCS:NSE", "WIPRO:NSE", "HCLTECH:NSE"],
+    "ICICIBANK:NSE":   ["HDFCBANK:NSE", "KOTAKBANK:NSE", "AXISBANK:NSE"],
+    "HINDUNILVR:NSE":  ["ITC:NSE", "NESTLEIND:NSE", "ASIANPAINT:NSE"],
+    "ITC:NSE":         ["HINDUNILVR:NSE", "NESTLEIND:NSE", "TITAN:NSE"],
+    "KOTAKBANK:NSE":   ["HDFCBANK:NSE", "ICICIBANK:NSE", "AXISBANK:NSE"],
+    "LT:NSE":          ["NTPC:NSE", "TATAMOTORS:NSE", "MARUTI:NSE"],
+    "AXISBANK:NSE":    ["HDFCBANK:NSE", "ICICIBANK:NSE", "KOTAKBANK:NSE"],
+    "BAJFINANCE:NSE":  ["HDFCBANK:NSE", "ICICIBANK:NSE", "KOTAKBANK:NSE"],
+    "ASIANPAINT:NSE":  ["HINDUNILVR:NSE", "ITC:NSE", "NESTLEIND:NSE"],
+    "MARUTI:NSE":      ["TATAMOTORS:NSE", "LT:NSE", "BAJFINANCE:NSE"],
+    "SUNPHARMA:NSE":   ["WIPRO:NSE", "HCLTECH:NSE", "INFY:NSE"],
+    "WIPRO:NSE":       ["TCS:NSE", "INFY:NSE", "HCLTECH:NSE"],
+    "HCLTECH:NSE":     ["TCS:NSE", "INFY:NSE", "WIPRO:NSE"],
+    "TITAN:NSE":       ["HINDUNILVR:NSE", "ITC:NSE", "ASIANPAINT:NSE"],
+    "ZOMATO:NSE":      ["NYKAA:NSE", "DMART:NSE", "TATAMOTORS:NSE"],
+    "TATAMOTORS:NSE":  ["MARUTI:NSE", "LT:NSE", "BAJFINANCE:NSE"],
+    "TATASTEEL:NSE":   ["JSWSTEEL:NSE", "HINDALCO:NSE", "VEDL:NSE"],
+    "AAPL:NASDAQ":     ["MSFT:NASDAQ", "GOOGL:NASDAQ", "META:NASDAQ"],
+    "MSFT:NASDAQ":     ["AAPL:NASDAQ", "GOOGL:NASDAQ", "AMZN:NASDAQ"],
+    "BTC/USD:Coinbase":["ETH/USD:Coinbase", "SOL/USD:Coinbase", "XRP/USD:Binance"],
+    "ETH/USD:Coinbase":["BTC/USD:Coinbase", "SOL/USD:Coinbase", "XRP/USD:Binance"],
+    "XAU/USD":         ["XAG/USD", "WTI/USD", "NGAS/USD"],
+}
+# ── Twelve Data client ────────────────────────────────────
+TD_API_KEY = "0dc8573a97f14da786a314e00c98c112"
+td = TDClient(apikey=TD_API_KEY)
+
+# universal symbol map for search
+ASSET_UNIVERSE = {
+    # Indian stocks
+    "Reliance Industries": "RELIANCE:NSE",
+    "TCS": "TCS:NSE",
+    "HDFC Bank": "HDFCBANK:NSE",
+    "Infosys": "INFY:NSE",
+    "ICICI Bank": "ICICIBANK:NSE",
+    "ITC": "ITC:NSE",
+    "Kotak Mahindra Bank": "KOTAKBANK:NSE",
+    "Larsen & Toubro": "LT:NSE",
+    "Axis Bank": "AXISBANK:NSE",
+    "Bajaj Finance": "BAJFINANCE:NSE",
+    "Asian Paints": "ASIANPAINT:NSE",
+    "Maruti Suzuki": "MARUTI:NSE",
+    "Sun Pharma": "SUNPHARMA:NSE",
+    "Wipro": "WIPRO:NSE",
+    "HCL Technologies": "HCLTECH:NSE",
+    "Titan Company": "TITAN:NSE",
+    "Zomato": "ZOMATO:NSE",
+    "Tata Motors": "TATAMOTORS:NSE",
+    "Tata Steel": "TATASTEEL:NSE",
+    "ONGC": "ONGC:NSE",
+    "Coal India": "COALINDIA:NSE",
+    "Adani Ports": "ADANIPORTS:NSE",
+    "JSW Steel": "JSWSTEEL:NSE",
+    "Hindalco": "HINDALCO:NSE",
+    "Bajaj Auto": "BAJAJ-AUTO:NSE",
+    "Hero MotoCorp": "HEROMOTOCO:NSE",
+    "Nykaa": "NYKAA:NSE",
+    "Dmart": "DMART:NSE",
+    "Vedanta": "VEDL:NSE",
+    # US stocks
+    "Apple": "AAPL:NASDAQ",
+    "Microsoft": "MSFT:NASDAQ",
+    "Google": "GOOGL:NASDAQ",
+    "Amazon": "AMZN:NASDAQ",
+    "Tesla": "TSLA:NASDAQ",
+    "Meta": "META:NASDAQ",
+    "Nvidia": "NVDA:NASDAQ",
+    "Netflix": "NFLX:NASDAQ",
+    # Crypto
+    "Bitcoin": "BTC/USD:Coinbase",
+    "Ethereum": "ETH/USD:Coinbase",
+    "Solana": "SOL/USD:Coinbase",
+    "XRP": "XRP/USD:Binance",
+    # Commodities
+    "Gold": "XAU/USD",
+    "Silver": "XAG/USD",
+    "Crude Oil WTI": "WTI/USD",
+    "Natural Gas": "NGAS/USD",
+    # Forex
+    "USD/INR": "USD/INR",
+    "EUR/INR": "EUR/INR",
+    "GBP/INR": "GBP/INR",
+    "EUR/USD": "EUR/USD",
 }
 
+@st.cache_data(ttl=3600)
+def search_assets(query):
+    if not query or len(query) < 2:
+        return ASSET_UNIVERSE
+    query_lower = query.lower()
+    matches = {
+        k: v for k, v in ASSET_UNIVERSE.items()
+        if query_lower in k.lower()
+    }
+    return matches if matches else ASSET_UNIVERSE
+
+@st.cache_data(ttl=300)
+def load_history_td(symbol, period="3mo"):
+    """Load OHLCV history from Twelve Data."""
+    period_map = {
+        "1mo": ("1day", "1month"),
+        "3mo": ("1day", "3months"),
+        "6mo": ("1day", "6months"),
+        "1y":  ("1day", "1year"),
+    }
+    interval, outputsize = period_map.get(period, ("1day", "3months"))
+    try:
+        ts = td.time_series(
+            symbol=symbol.split(":")[0],
+            exchange=symbol.split(":")[1] if ":" in symbol else None,
+            interval=interval,
+            outputsize=outputsize,
+            order="ASC"
+        )
+        df = ts.as_pandas()
+        df.index = pd.to_datetime(df.index)
+        df.columns = [c.capitalize() for c in df.columns]
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+@st.cache_data(ttl=300)
+def get_current_price_td(symbol):
+    """Get current price from Twelve Data."""
+    try:
+        price = td.price(
+            symbol=symbol.split(":")[0],
+            exchange=symbol.split(":")[1] if ":" in symbol else None
+        ).as_json()
+        return float(price["price"])
+    except Exception:
+        return None
+
+@st.cache_data(ttl=300)
+def get_peer_moves_td(peer_symbols):
+    moves = {}
+    for symbol in peer_symbols:
+        try:
+            hist = load_history_td(symbol, "1mo")
+            if len(hist) >= 2:
+                chg = ((hist['Close'].iloc[-1] - hist['Close'].iloc[-2])
+                       / hist['Close'].iloc[-2]) * 100
+                moves[symbol] = round(chg, 2)
+        except Exception:
+            moves[symbol] = None
+    return moves
 # ════════════════════════════════════════════════════════════
 # FUNCTIONS
 # ════════════════════════════════════════════════════════════
@@ -343,7 +453,7 @@ def search_stocks(query):
         return POPULAR_STOCKS
 
 @st.cache_data(ttl=300)
-def load_history(ticker, period):
+def load_history_td(ticker, period):
     try:
         from curl_cffi import requests as cffi_requests
         session = cffi_requests.Session(impersonate="chrome")
@@ -355,7 +465,7 @@ def load_history(ticker, period):
             return pd.DataFrame()
 
 @st.cache_data(ttl=300)
-def get_current_price(ticker):
+def get_current_price_td(ticker):
     try:
         from curl_cffi import requests as cffi_requests
         session = cffi_requests.Session(impersonate="chrome")
@@ -401,7 +511,7 @@ def get_peer_moves(peer_tickers):
 
 def analyze_move(ticker, day_change_pct):
     peers      = SECTOR_PEERS.get(ticker, [])
-    peer_moves = get_peer_moves(tuple(peers)) if peers else {}
+    peer_moves = get_peer_moves_td(tuple(peers)) if peers else {}
     valid      = [v for v in peer_moves.values() if v is not None]
     avg_peer   = round(sum(valid) / len(valid), 2) if valid else 0
     same_dir   = (day_change_pct > 0 and avg_peer > 0) or \
@@ -425,8 +535,8 @@ def analyze_move(ticker, day_change_pct):
 @st.cache_data(ttl=3600)
 def get_beta(ticker):
     try:
-        stock_hist = yf.Ticker(ticker).history(period="1y")
-        nifty_hist = yf.Ticker("^NSEI").history(period="1y")
+        stock_hist = load_history_td(ticker, "1y")
+        nifty_hist = load_history_td("NIFTY:NSE", "1y")
         if stock_hist.empty or nifty_hist.empty:
             return 1.0
         stock_ret = stock_hist['Close'].pct_change().dropna()
@@ -434,11 +544,22 @@ def get_beta(ticker):
         combined  = pd.DataFrame({"stock": stock_ret, "nifty": nifty_ret}).dropna()
         if len(combined) < 30:
             return 1.0
-        cov  = combined['stock'].cov(combined['nifty'])
-        var  = combined['nifty'].var()
+        cov = combined['stock'].cov(combined['nifty'])
+        var = combined['nifty'].var()
         return round(cov / var, 2) if var != 0 else 1.0
     except:
         return 1.0
+
+@st.cache_data(ttl=3600)
+def get_nifty_return():
+    try:
+        hist = load_history_td("NIFTY:NSE", "1mo")
+        if len(hist) >= 2:
+            return ((hist['Close'].iloc[-1] - hist['Close'].iloc[0])
+                    / hist['Close'].iloc[0]) * 100
+    except:
+        pass
+    return 0.0
 
 @st.cache_data(ttl=3600)
 def get_nifty_return():
@@ -523,9 +644,9 @@ if page == "My Portfolio":
         today_pnl      = 0
 
         for h in st.session_state.holdings:
-            cp = get_current_price(h["Ticker"])
+            cp = get_current_price_td(h["Ticker"])
             if cp:
-                hist2    = load_history(h["Ticker"], "2d")
+                hist2    = load_history_td(h["Ticker"], "2d")
                 prev_p   = hist2['Close'].iloc[-2] if len(hist2) >= 2 else cp
                 day_chg  = ((cp - prev_p) / prev_p) * 100
                 invested = h["Qty"] * h["Buy Price"]
@@ -657,13 +778,13 @@ elif page == "Stock Explorer":
 
     search_query_ex  = st.sidebar.text_input("Search company",
         placeholder="e.g. Infosys, Zomato...", key="explorer_search")
-    explorer_results = search_stocks(search_query_ex)
+    explorer_results = search_assets(search_query_ex)
     selected_display = st.sidebar.selectbox("Select", list(explorer_results.keys()))
     selected_ticker  = explorer_results[selected_display]
     selected_name    = selected_display.split(" (")[0]
     period           = st.sidebar.selectbox("Period", ["1mo","3mo","6mo","1y"], index=1)
 
-    hist = load_history(selected_ticker, period)
+    hist = load_history_td(selected_ticker, period)
     if not hist.empty:
         latest = hist['Close'].iloc[-1]
         prev   = hist['Close'].iloc[-2]
@@ -758,7 +879,7 @@ elif page == "Stress Tester":
         total_stressed = 0
 
         for h in st.session_state.holdings:
-            cp = get_current_price(h["Ticker"])
+            cp = get_current_price_td(h["Ticker"])
             if not cp:
                 continue
             beta           = get_beta(h["Ticker"])
@@ -970,12 +1091,24 @@ elif page == "Sector Heatmap":
 
     @st.cache_data(ttl=3600)
     def get_sector_returns():
+        SECTORS_TD = {
+        "Banking":        ["HDFCBANK:NSE","ICICIBANK:NSE","KOTAKBANK:NSE","AXISBANK:NSE"],
+        "IT":             ["TCS:NSE","INFY:NSE","WIPRO:NSE","HCLTECH:NSE"],
+        "Energy":         ["RELIANCE:NSE","ONGC:NSE","BPCL:NSE","IOC:NSE"],
+        "FMCG":           ["HINDUNILVR:NSE","ITC:NSE","NESTLEIND:NSE"],
+        "Auto":           ["MARUTI:NSE","TATAMOTORS:NSE","BAJAJ-AUTO:NSE"],
+        "Pharma":         ["SUNPHARMA:NSE","DRREDDY:NSE","CIPLA:NSE"],
+        "Metals":         ["TATASTEEL:NSE","JSWSTEEL:NSE","HINDALCO:NSE"],
+        "Infrastructure": ["LT:NSE","NTPC:NSE","ADANIPORTS:NSE"],
+        "Consumer Tech":  ["ZOMATO:NSE","NYKAA:NSE","DMART:NSE"],
+        "Crypto":         ["BTC/USD:Coinbase","ETH/USD:Coinbase","SOL/USD:Coinbase"],
+    }
         results = {}
-        for sector, tickers in SECTORS.items():
+        for sector, symbols in SECTORS_TD.items():
             s1d, s1w, s1mo = [], [], []
-            for ticker in tickers:
+            for symbol in symbols:
                 try:
-                    hist = yf.Ticker(ticker).history(period="2mo")
+                    hist = load_history_td(symbol, "3mo")
                     if len(hist) < 5:
                         continue
                     pn = hist['Close'].iloc[-1]
@@ -1250,10 +1383,10 @@ elif page == "Report Card":
         total_current  = 0
 
         for h in st.session_state.holdings:
-            cp = get_current_price(h["Ticker"])
+            cp = get_current_price_td(h["Ticker"])
             if not cp:
                 continue
-            hist2    = load_history(h["Ticker"], "2d")
+            hist2    = load_history_td(h["Ticker"], "2d")
             prev_p   = hist2['Close'].iloc[-2] if len(hist2) >= 2 else cp
             invested = h["Qty"] * h["Buy Price"]
             cur_val  = h["Qty"] * cp
