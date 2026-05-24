@@ -5,5 +5,3 @@ numpy
 plotly
 requests
 reportlab
-curl_cffi
-twelvedata
