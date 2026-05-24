@@ -12,6 +12,7 @@ from datetime import datetime
 import yfinance as yf
 import requests_cache
 requests_cache.install_cache("voltr_cache", expire_after=300)
+from rapidfuzz import process, fuzz
 # ── API keys ──────────────────────────────────────────────
 AV_API_KEY   = "0dc8573a97f14da786a314e00c98c112"  # Alpha Vantage
 NEWS_API_KEY = "2eef45892af14f5b91ea0338619e3d39"  # NewsAPI
@@ -145,10 +146,10 @@ SECTOR_PEERS = {
 # ════════════════════════════════════════════════════════
 
 def get_asset_type(name):
+    clean = name.replace(" (Crypto)", "")
     if name in STOCK_UNIVERSE:
         return "stock"
-    clean = name.replace(" (Crypto)", "")
-    if clean in CRYPTO_UNIVERSE:
+    if clean in CRYPTO_UNIVERSE or name in CRYPTO_UNIVERSE:
         return "crypto"
     if name in COMMODITY_UNIVERSE:
         return "commodity"
@@ -318,8 +319,26 @@ def get_news(company_name):
 def search_assets(query):
     if not query or len(query) < 2:
         return {k: k for k in list(FULL_UNIVERSE.keys())[:30]}
-    q = query.lower()
-    return {k: k for k in FULL_UNIVERSE if q in k.lower()}
+
+    all_names = list(FULL_UNIVERSE.keys())
+
+    # exact substring matches first
+    exact = [k for k in all_names if query.lower() in k.lower()]
+
+    # fuzzy matches for typos
+    fuzzy_results = process.extract(
+        query, all_names,
+        scorer=fuzz.WRatio,
+        limit=10,
+        score_cutoff=50
+    )
+    fuzzy_names = [r[0] for r in fuzzy_results]
+
+    # combine — exact first, then fuzzy, deduplicated
+    combined = list(dict.fromkeys(exact + fuzzy_names))
+
+    return {k: k for k in combined} if combined else \
+           {k: k for k in list(FULL_UNIVERSE.keys())[:30]}
 
 def analyze_move(asset_name, day_change_pct):
     ticker     = STOCK_UNIVERSE.get(asset_name)
@@ -374,7 +393,27 @@ def get_nifty_return():
     except:
         pass
     return 0.0
-
+@st.cache_data(ttl=3600)
+def get_stock_financials(asset_name):
+    ticker = STOCK_UNIVERSE.get(asset_name)
+    if not ticker:
+        return None
+    try:
+        info = yf.Ticker(ticker).info
+        return {
+            "market_cap":    info.get("marketCap"),
+            "pe_ratio":      info.get("trailingPE"),
+            "pb_ratio":      info.get("priceToBook"),
+            "revenue":       info.get("totalRevenue"),
+            "profit_margin": info.get("profitMargins"),
+            "dividend":      info.get("dividendYield"),
+            "52w_high":      info.get("fiftyTwoWeekHigh"),
+            "52w_low":       info.get("fiftyTwoWeekLow"),
+            "sector":        info.get("sector", ""),
+            "industry":      info.get("industry", ""),
+        }
+    except:
+        return None
 # ════════════════════════════════════════════════════════
 # EMAIL + ALERTS
 # ════════════════════════════════════════════════════════
@@ -589,11 +628,13 @@ if page == "My Portfolio":
                 st.write("")
                 st.write("")
                 if st.button("Add", use_container_width=True):
+                    _, cur = load_history(asset_display, "1mo")
                     st.session_state.holdings.append({
                         "Name":      asset_display,
                         "Type":      atype,
                         "Qty":       quantity,
                         "Buy Price": buy_price,
+                        "Currency":  cur if cur else "$",
                     })
                     st.rerun()
         else:
@@ -681,7 +722,13 @@ if page == "My Portfolio":
                         unsafe_allow_html=True)
             c3.markdown(f"<span style='color:#888'>{r['buy_price']:,.2f}</span>",
                         unsafe_allow_html=True)
-            c4.markdown(f"{r['cur_price']:,.2f}")
+            currency_label = "₹" if r.get("type") == "stock" and \
+                             STOCK_UNIVERSE.get(r["name",""])  and \
+                             ".NS" in STOCK_UNIVERSE.get(r["name"], "") \
+                             else "$" if r.get("type") in ("stock","crypto","commodity") \
+                             else ""
+            cur_sym = r.get("currency", "")
+            c4.markdown(f"{cur_sym}{r['cur_price']:,.2f}")
             c5.markdown(
                 f"<span style='color:{pc}'>{ps}{r['pnl']:,.2f} "
                 f"({ps}{r['pnl_pct']:.1f}%)</span>",
@@ -827,8 +874,57 @@ elif page == "Stock Explorer":
             yaxis=dict(showgrid=True,gridcolor='#1a1a1a',color="#444"))
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.error("Could not fetch data for this asset.")
-
+        st.markdown("""
+        <div style="background:#141414;border:1px solid #2a2a2a;border-radius:12px;
+                    padding:24px;text-align:center;margin-top:20px">
+          <div style="font-size:16px;color:#555;margin-bottom:8px">Data unavailable</div>
+          <div style="font-size:13px;color:#444">
+            This asset may be delisted, outside our coverage, or temporarily unavailable.
+            Try searching for a different asset.
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+# ── company financials ────────────────────────────
+        if atype == "stock":
+            fins = get_stock_financials(sel_display)
+            if fins:
+                st.markdown("<div class='nw-section'>Company financials</div>",
+                            unsafe_allow_html=True)
+                f1,f2,f3,f4 = st.columns(4)
+                with f1:
+                    mc = fins["market_cap"]
+                    mc_str = f"${mc/1e9:.1f}B" if mc and mc>1e9 else \
+                             f"${mc/1e6:.1f}M" if mc else "N/A"
+                    st.markdown(f"""<div class="nw-metric">
+                      <div class="nw-metric-label">Market Cap</div>
+                      <div class="nw-metric-value" style="font-size:18px">{mc_str}</div>
+                    </div>""", unsafe_allow_html=True)
+                with f2:
+                    pe = fins["pe_ratio"]
+                    st.markdown(f"""<div class="nw-metric">
+                      <div class="nw-metric-label">P/E Ratio</div>
+                      <div class="nw-metric-value" style="font-size:18px">
+                        {f"{pe:.1f}x" if pe else "N/A"}</div>
+                    </div>""", unsafe_allow_html=True)
+                with f3:
+                    pm = fins["profit_margin"]
+                    st.markdown(f"""<div class="nw-metric">
+                      <div class="nw-metric-label">Profit Margin</div>
+                      <div class="nw-metric-value" style="font-size:18px">
+                        {f"{pm*100:.1f}%" if pm else "N/A"}</div>
+                    </div>""", unsafe_allow_html=True)
+                with f4:
+                    div = fins["dividend"]
+                    st.markdown(f"""<div class="nw-metric">
+                      <div class="nw-metric-label">Dividend Yield</div>
+                      <div class="nw-metric-value" style="font-size:18px">
+                        {f"{div*100:.2f}%" if div else "N/A"}</div>
+                    </div>""", unsafe_allow_html=True)
+                if fins.get("sector"):
+                    st.markdown(
+                        f"<span style='color:#555;font-size:12px'>"
+                        f"{fins['sector']} · {fins['industry']}</span>",
+                        unsafe_allow_html=True)
 # ════════════════════════════════════════════════════════
 # PAGE: STRESS TESTER
 # ════════════════════════════════════════════════════════

@@ -6,3 +6,4 @@ plotly
 requests
 reportlab
 requests-cache
+rapidfuzz
