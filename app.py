@@ -221,33 +221,34 @@ def load_history(asset_name, period="3mo"):
     elif atype == "forex":
         _, from_c, to_c = FOREX_UNIVERSE[asset_name]
         try:
-            url  = "https://www.alphavantage.co/query"
-            resp = requests.get(url, params={
-                "function": "FX_DAILY",
-                "from_symbol": from_c,
-                "to_symbol": to_c,
-                "outputsize": "compact",
-                "apikey": AV_API_KEY
-            }, timeout=10)
+            # frankfurter.app — free, no key, no limits
+            period_days = {"1mo": 30, "3mo": 90, "6mo": 180, "1y": 365}
+            days = period_days.get(period, 90)
+            end_date   = pd.Timestamp.now().strftime("%Y-%m-%d")
+            start_date = (pd.Timestamp.now() - pd.Timedelta(days=days))\
+                         .strftime("%Y-%m-%d")
+            url  = (f"https://api.frankfurter.app/{start_date}..{end_date}"
+                    f"?from={from_c}&to={to_c}")
+            resp = requests.get(url, timeout=10)
             data = resp.json()
-            ts   = data.get("Time Series FX (Daily)", {})
-            if ts:
+            rates = data.get("rates", {})
+            if rates:
                 rows = []
-                for date, vals in sorted(ts.items()):
+                for date_str, vals in sorted(rates.items()):
+                    price = vals.get(to_c, 0)
                     rows.append({
-                        "timestamp": pd.to_datetime(date),
-                        "Open":  float(vals["1. open"]),
-                        "High":  float(vals["2. high"]),
-                        "Low":   float(vals["3. low"]),
-                        "Close": float(vals["4. close"]),
+                        "timestamp": pd.to_datetime(date_str),
+                        "Open":  price,
+                        "High":  price * 1.002,
+                        "Low":   price * 0.998,
+                        "Close": price,
                         "Volume": 0,
                     })
                 df = pd.DataFrame(rows).set_index("timestamp")
-                return df, to_c
-        except:
+                return df, f"{from_c}/{to_c}"
+        except Exception as e:
             pass
         return pd.DataFrame(), ""
-
     return pd.DataFrame(), ""
 
 @st.cache_data(ttl=300)
@@ -277,11 +278,21 @@ def get_current_price(asset_name):
         except:
             return None
 
-    elif atype in ("commodity", "forex"):
+    elif atype == "commodity":
         hist, _ = load_history(asset_name, "1mo")
         if not hist.empty:
             return hist['Close'].iloc[-1]
         return None
+
+    elif atype == "forex":
+        _, from_c, to_c = FOREX_UNIVERSE[asset_name]
+        try:
+            url  = f"https://api.frankfurter.app/latest?from={from_c}&to={to_c}"
+            resp = requests.get(url, timeout=5)
+            data = resp.json()
+            return data.get("rates", {}).get(to_c)
+        except:
+            return None
 
     return None
 
