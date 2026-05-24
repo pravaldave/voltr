@@ -10,7 +10,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 import yfinance as yf
-
+import requests_cache
+requests_cache.install_cache("voltr_cache", expire_after=300)
 # ── API keys ──────────────────────────────────────────────
 AV_API_KEY   = "0dc8573a97f14da786a314e00c98c112"  # Alpha Vantage
 NEWS_API_KEY = "2eef45892af14f5b91ea0338619e3d39"  # NewsAPI
@@ -1597,4 +1598,3 @@ When a stock in your portfolio moves more than **1%** in a day, Voltr automatica
 
 Add stocks to your portfolio to see live signals on the Portfolio page.
     """)
-    
